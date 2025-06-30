@@ -1,0 +1,80 @@
+#!/bin/bash
+
+# exit when any command fails
+set -e
+
+# Validate arguments
+if [ "$#" -ne 1 ]; then
+    echo "Usage: $0 [patch|minor|major]"
+    exit 1
+fi
+
+VERSION_TYPE=$1
+
+# Check if argument is valid
+if [[ ! "$VERSION_TYPE" =~ ^(patch|minor|major)$ ]]; then
+    echo "Error: Version type must be 'patch', 'minor', or 'major'"
+    exit 1
+fi
+
+# Check if package.json exists
+if [ ! -f "package.json" ]; then
+    echo "Error: package.json not found"
+    exit 1
+fi
+
+# Check if docker is available
+if ! command -v docker &> /dev/null; then
+    echo "Error: docker is not installed or not in PATH"
+    exit 1
+fi
+
+# Read current version from package.json
+CURRENT_VERSION=$(grep -o '"version": "[^"]*' package.json | cut -d'"' -f4)
+echo "Current version: $CURRENT_VERSION"
+
+# Split the version into major, minor, and patch components
+IFS='.' read -r -a VERSION_PARTS <<< "$CURRENT_VERSION"
+MAJOR=${VERSION_PARTS[0]}
+MINOR=${VERSION_PARTS[1]}
+PATCH=${VERSION_PARTS[2]}
+
+# Increment version based on version type
+if [ "$VERSION_TYPE" == "major" ]; then
+    MAJOR=$((MAJOR + 1))
+    MINOR=0
+    PATCH=0
+elif [ "$VERSION_TYPE" == "minor" ]; then
+    MINOR=$((MINOR + 1))
+    PATCH=0
+elif [ "$VERSION_TYPE" == "patch" ]; then
+    PATCH=$((PATCH + 1))
+fi
+
+# Construct new version
+NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+echo "New version: $NEW_VERSION"
+
+# Update version in package.json
+# Using sed with different syntax for Linux and macOS
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    # macOS
+    sed -i '' "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$NEW_VERSION\"/" package.json
+else
+    # Linux
+    sed -i "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$NEW_VERSION\"/" package.json
+fi
+
+echo "Updated package.json version to $NEW_VERSION"
+
+# Build Docker image
+echo "Building Docker image: wolfymaster/twitch-watcher:$NEW_VERSION"
+docker build . -t wolfymaster/twitch-watcher:$NEW_VERSION
+docker tag wolfymaster/twitch-watcher:$NEW_VERSION wolfymaster/twitch-watcher:latest
+
+# Push Docker image
+echo "Pushing Docker image to repository"
+docker push wolfymaster/twitch-watcher:$NEW_VERSION
+docker push wolfymaster/twitch-watcher:latest
+
+echo "Deployment complete! Version $NEW_VERSION has been built and pushed."
