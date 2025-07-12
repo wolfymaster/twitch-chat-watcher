@@ -12,6 +12,16 @@ dotenv.config({
 const commander = new Commands();
 const subjectMap = new Map();
 
+function sleep(seconds: number) {
+  return new Promise(resolve => setTimeout(resolve, seconds * 1000));
+}
+
+/**
+ * Imporovments - 
+ *  - If the user has already !play then consider it as if the bot had done it
+ *  - How to figure out the emote drop people use instead of !play
+ */
+
 function getOrCreateSubject(command: string, channel: string, timeout?: number) {
     const key = `${command}-${channel}`;
 
@@ -24,7 +34,10 @@ function getOrCreateSubject(command: string, channel: string, timeout?: number) 
         );
 
         throttled.subscribe((obj: { msg: string, send: (msg: string) => Promise<void> }) => {
-            obj.send(obj.msg);
+            const sleepTime = Math.floor((Math.random() * 10));
+            console.log(`sleeping for: ${sleepTime} seconds`);
+            sleep(1 + sleepTime) // add artificial jitter
+            .then(() => obj.send(obj.msg));
         });
 
         subjectMap.set(key, subject);
@@ -34,7 +47,7 @@ function getOrCreateSubject(command: string, channel: string, timeout?: number) 
 }
 
 // bootstrap twitch auth provider
-const channels = ['cyburdial', 'novarockafeller', 'tinktv', 'kayla_shay_', 'gingrbredbeauty', 'sreme'];
+const channels = ['cyburdial', 'tinktv', 'gingrbredbeauty', 'sreme'];
 for(const channel of channels) {
     await TwitchBootstrap(channel, commander, {
         databaseURL: process.env.DATABASE_PROXY_URL || "",
