@@ -1,5 +1,5 @@
 {
-  "version": "1.0.11",
+  "version": "2.0.0",
   "dependencies": {
     "@twurple/auth": "^7.3.0",
     "@twurple/chat": "^7.3.0",
