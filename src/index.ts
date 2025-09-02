@@ -4,6 +4,7 @@ import TwitchBootstrap from './twitchBootstrap';
 import { Commands } from './commands';
 import { Subject } from 'rxjs';
 import { throttleTime } from 'rxjs/operators';
+import config from '../config.json';
 
 dotenv.config({
     path: [path.resolve(process.cwd(), '.env'), path.resolve(process.cwd(), '../', '.env')],
@@ -11,6 +12,8 @@ dotenv.config({
 
 const commander = new Commands();
 const subjectMap = new Map();
+
+const THREE_MINUTES = 180000;
 
 function sleep(seconds: number) {
   return new Promise(resolve => setTimeout(resolve, seconds * 1000));
@@ -47,52 +50,47 @@ function getOrCreateSubject(command: string, channel: string, timeout?: number) 
 }
 
 // bootstrap twitch auth provider
-const channels = ['cyburdial', 'tinktv', 'gingrbredbeauty', 'sreme'];
-for(const channel of channels) {
+for(const channel of config.channels) {
     await TwitchBootstrap(channel, commander, {
         databaseURL: process.env.DATABASE_PROXY_URL || "",
     });
 }
 
-const THREE_MINUTES = 180000;
-const TWELVE_HOURS = 43200000;
-
-// commands
-commander.add('play', async (msg: string, user: string, channel: string, send: (msg: string) => Promise<void>) => {
-    getOrCreateSubject('play', channel, THREE_MINUTES).next({
-        msg: '!play',
-        send
+// interate over commands - only add each command once. Single commander shared across all channels
+for(const command of config.commands) {
+    commander.add(command.command, async (msg: string, user: string, channel: string, send: (msg: string) => Promise<void>) => {
+        if((command.channels.length == 1 && command.channels[0] === "*") || command.channels.includes(channel)) {
+            getOrCreateSubject(`${channel}.${command.command}`, channel, command.cooldown).next({
+                msg: command.response,
+                send
+            });
+        }
+        return '';
     });
-    return '';
-});
+}
 
-commander.add('join', async (msg: string, user: string, channel: string, send: (msg: string) => Promise<void>) => {
-    getOrCreateSubject('join', channel, THREE_MINUTES).next({
-        msg: '!join',
-        send
-    });
-    return '';
-});
+// iterate over messages
+for(const message of config.messages) {
+    commander.every(async (msg: string, user: string, channel: string, send: (msg: string) => Promise<void>) => {
+        // verify correct channel
+        if(channel.toLowerCase() !== message.channel.toLowerCase()) {
+            return;
+        }
 
-commander.every(async (msg: string, user: string, channel: string, send: (msg: string) => Promise<void>) => {
-    if (channel.toLowerCase() === 'novarockafeller' && user.toLowerCase() === 'sery_bot' && msg.toLowerCase() === 'sery_bot is here seryboarrive') {
-        getOrCreateSubject('serybot', channel, TWELVE_HOURS).next({
-            msg: 'NOVAAAAAA',
+        // verify correct user (if exists)
+        if(message.user && (user.toLowerCase() !== message.user.toLowerCase())) {
+            return;
+        }
+
+        // verify trigger message (if exists)
+        if(message.prefix && !msg.toLowerCase().startsWith(message.prefix)) {
+            return;
+        }
+
+        // should be good to send message
+        getOrCreateSubject(`${channel}.${message.user}`, channel, message.cooldown).next({
+            msg: message.response,
             send
         });
-    }
-
-    if (channel.toLowerCase() === 'closureclub' && user.toLowerCase() === 'theclosureclub' && msg.toLowerCase().startsWith('!go')) {
-        getOrCreateSubject('go', channel, TWELVE_HOURS).next({
-            msg: '!first',
-            send
-        })
-    }
-
-    if (channel.toLowerCase() === 'kayla_shay_' && user.toLowerCase() === 'streamelements' && msg.toLowerCase().startsWith('kayla_shay_ is now live!')) {
-        getOrCreateSubject('greeting', channel, TWELVE_HOURS).next({
-            msg: 'KAYLAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
-            send
-        });
-    }
-});
+    });
+}

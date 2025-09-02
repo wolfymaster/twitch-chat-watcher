@@ -1,0 +1,40 @@
+{
+    "channels": [
+        "cyburdial",
+        "tinktv",
+        "gingrbredbeauty",
+        "sreme",
+        "wolfymaster"
+    ],
+    "commands": [
+        {
+            "command": "join",
+            "response": "!join",
+            "cooldown": 180000,
+            "channels": ["*"]
+        },
+        {
+            "command": "play",
+            "response": "!play",
+            "cooldown": 180000,
+            "channels": ["*"]
+        },
+        {
+            "command": "specific_channel",
+            "response": "Will only run on specified channels",
+            "cooldown": 2000,
+            "channels": [
+                "wolfymaster"
+            ]
+        }
+    ],
+    "messages": [
+        {
+            "channel": "wolfymaster",
+            "cooldown": 2000,            
+            "prefix": "message must start with this prefix",
+            "response": "return response for message from specific user",
+            "user": "wolfynovice"
+        }
+    ]
+}

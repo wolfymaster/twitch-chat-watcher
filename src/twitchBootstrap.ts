@@ -11,8 +11,8 @@ type BootstrapArgs = {
 
 export default async function bootstrap(channel: string, commander: Commands, args: BootstrapArgs): Promise<(msg: string, opts?: ChatSayMessageAttributes, parseCommand?: boolean) => Promise<void>> {
     const authProvider = new RefreshingAuthProvider({
-        clientId: process.env.TWITCH_WOLFY_CLIENT_ID || "",
-        clientSecret: process.env.TWITCH_WOLFY_CLIENT_SECRET || "",
+        clientId: process.env.TWITCH_CLIENT_ID || "",
+        clientSecret: process.env.TWITCH_CLIENT_SECRET || "",
         redirectUri: process.env.TWITCH_REDIRECT_URL || "http://localhost",
     });
     
