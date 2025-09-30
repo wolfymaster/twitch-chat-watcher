@@ -23,6 +23,7 @@ WORKDIR /app
 # Copy only necessary files from builder
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/config.json ./config.json
 COPY --from=builder /app/src ./src
 
 # Run the application
