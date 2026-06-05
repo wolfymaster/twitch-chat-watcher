@@ -1,6 +1,7 @@
 export interface Configuration {
     channels: string[],
     commands: CommandConfig[],
+    visualAI?: VisualAIConfig;
 }
 
 export interface CommandConfig {
@@ -16,4 +17,12 @@ export interface ChannelMessage {
     user: string;
     prefix: string;
     response: string;
+}
+
+export interface VisualAIConfig {
+    apiKey?: string;
+    screenshotInterval?: number;
+    activityThreshold?: number;
+    cooldownPeriod?: number;
+    minGameDuration?: number;
 }
