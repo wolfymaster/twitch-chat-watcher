@@ -2,6 +2,9 @@ export interface Command {
     action: string;
     command: string;
     response: CommandResponse;
+    /** Optional matcher. When set, the parsed command token is tested against
+     * this regex instead of being exact-compared to `action`. */
+    match?: RegExp;
 };
 
 export type ChatWatcherFunction = (msg: string, user: string, channel: string, send: (msg: string) => Promise<void>) => Promise<void>
@@ -14,11 +17,14 @@ export class Commands {
 
     constructor() {}
 
-    add(command: string, response: CommandResponse) {
+    add(command: string, response: CommandResponse, match?: RegExp) {
         const cmd = this.commands.find(cmd => cmd.command === command);
 
         if(cmd) {
             cmd.response = response;
+            if(match) {
+                cmd.match = match;
+            }
             return;
         }
 
@@ -26,6 +32,7 @@ export class Commands {
             action: `!${command}`,
             command,
             response,
+            match,
         });
     }
 
@@ -39,14 +46,16 @@ export class Commands {
         this.watchers.forEach(w => this.try(() => w(chatMsg, user, channel, send)));
 
         for(let i = 0; i < this.commands.length; ++i) {
-            const { action, response } = this.commands[i];
+            const { action, response, match } = this.commands[i];
             if(!text.length || text[0] != '!') {
                 return ['', false];
             }
-            
+
             let msg = this.parseAction(text);
 
-            if(msg.cmd === action) {
+            const hit = match ? match.test(msg.cmd) : msg.cmd === action;
+
+            if(hit) {
                 if(typeof response === 'string') {
                     return [response, true];
                 }

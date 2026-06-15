@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { MARBLES_CONFIG } from './marblesConfig';
-import { ChannelHeuristics } from './heuristics';
+import type { ChannelHeuristics } from './heuristics';
 
 // ============================================
 // TYPES

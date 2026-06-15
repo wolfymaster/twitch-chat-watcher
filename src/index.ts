@@ -5,12 +5,11 @@ import { Commands } from './commands';
 import { Subject } from 'rxjs';
 import { throttleTime } from 'rxjs/operators';
 import config from '../config.json';
-import { GameStateManager } from './gameState';
-import { VisualAIService } from './visualAIService';
 import { FFmpegStreamCapture } from './ffmpegStreamCapture';
 import { HeuristicsManager } from './heuristics';
 import { MarblesHeuristicsManager } from './marblesHeuristics';
-import { MarblesGameManager } from './marblesGame';
+import { MarblesListener } from './marbles';
+import type { MarblesConfig } from './marbles';
 
 dotenv.config({
     path: [path.resolve(process.cwd(), '.env'), path.resolve(process.cwd(), '../', '.env')],
@@ -22,38 +21,24 @@ dotenv.config({
 
 const commander = new Commands();
 const subjectMap = new Map();
-const gameStateManager = new GameStateManager();
 const streamCapture = new FFmpegStreamCapture('./screenshots');
 const heuristicsManager = new HeuristicsManager('./memory');
 const marblesHeuristicsManager = new MarblesHeuristicsManager('./memory');
 
-const visualAIConfig = config.visualAI || {
-    cooldownPeriod: 180000,
-    minGameDuration: 120000,
-};
+const marblesConfig = config.marbles as unknown as MarblesConfig;
 
-const hasAnthropicKey = !!process.env.ANTHROPIC_API_KEY;
-let visualAIService: VisualAIService | null = null;
+// Initialize the Marbles Listener (event filter chain + vision-based session
+// detection). Vision provider is chosen from config (Ollama default, Claude
+// fallback) inside init().
+const marblesListener = new MarblesListener({
+    heuristics: heuristicsManager,
+    marblesHeuristics: marblesHeuristicsManager,
+    config: marblesConfig,
+    capture: (channel: string) => streamCapture.captureFrame(channel, { quality: 2 }),
+});
 
-if (hasAnthropicKey) {
-    visualAIService = new VisualAIService({
-        apiKey: process.env.ANTHROPIC_API_KEY,
-        ...visualAIConfig
-    });
-    console.log('[Main] Visual AI service initialized with Anthropic API');
-} else {
-    console.warn('[Main] ANTHROPIC_API_KEY not found. Visual AI features will be disabled.');
-}
-
-// Initialize Marbles Game Manager
-const marblesGameManager = new MarblesGameManager(
-    heuristicsManager,
-    marblesHeuristicsManager,
-    visualAIService,
-    (channel: string) => streamCapture.captureFrame(channel, { quality: 2 })
-);
-
-console.log('[Main] Marbles Game Manager initialized');
+await marblesListener.init();
+console.log('[Main] Marbles Listener initialized');
 
 const THREE_MINUTES = 180000;
 
@@ -119,35 +104,20 @@ console.log(`[Main] Successfully connected to ${config.channels.length} channels
 // COMMAND HANDLERS
 // ============================================
 
+// The Marbles Listener owns the !play family (!play, !play1, !play2, …); it
+// registers its own matcher and routes through handlePlay. The throttled+jittered
+// send stays here via getOrCreateSubject.
+marblesListener.register(commander, (channel, send) => {
+    getOrCreateSubject(`${channel}.${marblesConfig.play.command}`, channel, marblesConfig.play.cooldown).next({
+        msg: marblesConfig.play.response,
+        send,
+    });
+});
+
 for(const command of config.commands) {
     commander.add(command.command, async (msg: string, user: string, channel: string, send: (msg: string) => Promise<void>) => {
-        
-        // Handle the play command with Marbles Game Manager
-        if (command.command === 'play') {
-            console.log(`[${channel}] !play command triggered by ${user}`);
-            
-            try {
-                const shouldSend = await marblesGameManager.processPlayCommand(
-                    channel,
-                    user,
-                    send
-                );
-                
-                if (shouldSend) {
-                    // Also throttle through the subject for safety
-                    getOrCreateSubject(`${channel}.${command.command}`, channel, command.cooldown).next({
-                        msg: command.response,
-                        send
-                    });
-                }
-            } catch (error) {
-                console.error(`[${channel}] Error processing !play command:`, error);
-            }
-            
-            return '';
-        }
-        
-        // Handle other commands normally
+
+        // Handle commands normally
         if ((command.channels.length == 1 && command.channels[0] === "*") || command.channels.includes(channel)) {
             getOrCreateSubject(`${channel}.${command.command}`, channel, command.cooldown).next({
                 msg: command.response,
@@ -191,9 +161,9 @@ for(const message of config.messages) {
 process.on('SIGINT', async () => {
     console.log('\n[Main] Shutting down...');
     
-    // Shutdown marbles game manager
-    marblesGameManager.shutdown();
-    
+    // Shutdown marbles listener
+    marblesListener.shutdown();
+
     // Shutdown heuristics managers
     heuristicsManager.shutdown();
     marblesHeuristicsManager.shutdown();
@@ -209,9 +179,9 @@ process.on('SIGINT', async () => {
 process.on('SIGTERM', async () => {
     console.log('\n[Main] Shutting down...');
     
-    // Shutdown marbles game manager
-    marblesGameManager.shutdown();
-    
+    // Shutdown marbles listener
+    marblesListener.shutdown();
+
     // Shutdown heuristics managers
     heuristicsManager.shutdown();
     marblesHeuristicsManager.shutdown();

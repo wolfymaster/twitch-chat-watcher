@@ -2,8 +2,6 @@ import chalk from 'chalk';
 import { type AccessTokenWithUserId, RefreshingAuthProvider } from '@twurple/auth';
 import { ChatClient, ChatMessage, type ChatSayMessageAttributes } from '@twurple/chat';
 import { Commands } from './commands';
-import { GameStateManager } from './gameState';
-import { VisualAIAnalyzer } from './visualAI';
 
 type SenderFunction = (msg: string, opts?: ChatSayMessageAttributes) => Promise<void>;
 

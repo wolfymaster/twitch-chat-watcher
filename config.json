@@ -1,22 +1,13 @@
 {
     "channels": [
-        "cyburdial",
-        "tinktv",
-        "gingrbredbeauty",
-        "sreme",
-        "jessikah_grace",
-        "wolfymaster"
+        "realgirlsdontgame",
+	"sreme",
+	"novagracie"
     ],
     "commands": [
         {
             "command": "join",
             "response": "!join",
-            "cooldown": 180000,
-            "channels": ["*"]
-        },
-        {
-            "command": "play",
-            "response": "!play",
             "cooldown": 180000,
             "channels": ["*"]
         },
@@ -32,10 +23,35 @@
     "messages": [
         {
             "channel": "wolfymaster",
-            "cooldown": 2000,            
+            "cooldown": 2000,
             "prefix": "message must start with this prefix",
             "response": "return response for message from specific user",
             "user": "wolfynovice"
         }
-    ]
+    ],
+    "marbles": {
+        "play": {
+            "command": "play",
+            "response": "!play",
+            "cooldown": 180000,
+            "channels": ["*"]
+        },
+        "vision": {
+            "provider": "ollama",
+            "ollama": {
+                "host": "http://localhost:11434",
+                "model": "llama3.2-vision"
+            }
+        },
+        "filters": {
+            "deduplication": { "enabled": true, "windowMs": 2000 },
+            "aggregateThreshold": { "enabled": true, "windowMs": 5000, "threshold": 3 },
+            "temperature": { "enabled": true, "hotCutoffMs": 30000, "warmCutoffMs": 180000 },
+            "detectSpacing": { "enabled": true, "spacingMs": 45000 },
+            "p90": { "enabled": false },
+            "frequentUsers": { "enabled": false, "minActive": 2 },
+            "rateTrend": { "enabled": false }
+        },
+        "sendCooldownMs": 180000
+    }
 }
