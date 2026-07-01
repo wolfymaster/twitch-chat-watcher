@@ -1,0 +1,85 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, docker-local]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set image tag
+        id: image
+        run: echo "tag=ttl.sh/wolfymaster/twitch-chat-watcher-${GITHUB_SHA::12}:24h" >> "$GITHUB_OUTPUT"
+
+      - name: Build image
+        run: docker build -t ${{ steps.image.outputs.tag }} .
+
+      - name: Push image to ttl.sh
+        run: docker push ${{ steps.image.outputs.tag }}
+
+      - name: Deploy to Portainer
+        env:
+          PORTAINER_URL: https://docker.local.arcanine.io:9443
+          PORTAINER_ENDPOINT_ID: "2"
+          PORTAINER_API_KEY: ${{ secrets.PORTAINER_API_KEY }}
+          TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
+          TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
+          TWITCH_REDIRECT_URL: ${{ secrets.TWITCH_REDIRECT_URL }}
+          TWITCH_BROADCASTER_TOKEN: ${{ secrets.TWITCH_BROADCASTER_TOKEN }}
+          IMAGE_TAG: ${{ steps.image.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          STACK_NAME="twitch-chat-watcher"
+
+          COMPOSE=$(cat <<EOF
+          version: "3.8"
+          services:
+            app:
+              image: ${IMAGE_TAG}
+              restart: unless-stopped
+              environment:
+                TWITCH_CLIENT_ID: \${TWITCH_CLIENT_ID}
+                TWITCH_CLIENT_SECRET: \${TWITCH_CLIENT_SECRET}
+                TWITCH_REDIRECT_URL: \${TWITCH_REDIRECT_URL}
+                TWITCH_BROADCASTER_TOKEN: \${TWITCH_BROADCASTER_TOKEN}
+          EOF
+          )
+
+          PAYLOAD=$(jq -n \
+            --arg content "$COMPOSE" \
+            --arg name "$STACK_NAME" \
+            --arg cid "$TWITCH_CLIENT_ID" \
+            --arg csecret "$TWITCH_CLIENT_SECRET" \
+            --arg redirect "$TWITCH_REDIRECT_URL" \
+            --arg btoken "$TWITCH_BROADCASTER_TOKEN" \
+            '{
+              name: $name,
+              stackFileContent: $content,
+              env: [
+                {name: "TWITCH_CLIENT_ID", value: $cid},
+                {name: "TWITCH_CLIENT_SECRET", value: $csecret},
+                {name: "TWITCH_REDIRECT_URL", value: $redirect},
+                {name: "TWITCH_BROADCASTER_TOKEN", value: $btoken}
+              ]
+            }')
+
+          EXISTING_ID=$(curl -sk -H "X-API-Key: $PORTAINER_API_KEY" \
+            "$PORTAINER_URL/api/stacks" | jq -r --arg name "$STACK_NAME" '.[] | select(.Name == $name) | .Id' | head -n1)
+
+          if [ -n "$EXISTING_ID" ]; then
+            echo "Updating existing stack (id=$EXISTING_ID)"
+            UPDATE_PAYLOAD=$(echo "$PAYLOAD" | jq 'del(.name) + {prune: true, pullImage: true}')
+            curl -sk -X PUT -H "X-API-Key: $PORTAINER_API_KEY" -H "Content-Type: application/json" \
+              --data-binary "$UPDATE_PAYLOAD" \
+              "$PORTAINER_URL/api/stacks/$EXISTING_ID?endpointId=$PORTAINER_ENDPOINT_ID" | jq '{Id, Status}'
+          else
+            echo "Creating new stack"
+            curl -sk -X POST -H "X-API-Key: $PORTAINER_API_KEY" -H "Content-Type: application/json" \
+              --data-binary "$PAYLOAD" \
+              "$PORTAINER_URL/api/stacks/create/standalone/string?endpointId=$PORTAINER_ENDPOINT_ID" | jq '{Id, Status}'
+          fi
