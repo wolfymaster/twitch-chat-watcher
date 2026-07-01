@@ -18,6 +18,9 @@ COPY . .
 # Production stage
 FROM oven/bun:1.0.30-slim
 
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Copy only necessary files from builder
