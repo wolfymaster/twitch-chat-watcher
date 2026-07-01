@@ -15,11 +15,27 @@
  * RxJS throttle subject in index.ts.
  */
 
+import chalk from 'chalk';
 import type { HeuristicsManager } from '../heuristics';
 import type { MarblesHeuristicsManager } from '../marblesHeuristics';
 import type { FilterChain, FilterContext } from './filters/filter';
 import type { SessionDetector } from './sessionDetector';
 import type { GameManagerState } from './types';
+
+function colorizeFilterLine(channel: string, action: string, by: string, reason: string): string {
+    const prefix = `[${channel}] [filter] ${action} via ${by}: `;
+    const lowerReason = reason.toLowerCase();
+    if (lowerReason.startsWith('hot:')) {
+        return chalk.bgRed.white(prefix + reason);
+    }
+    if (lowerReason.startsWith('warm:')) {
+        return chalk.bgHex('#FF8C00').white(prefix + reason);
+    }
+    if (lowerReason.startsWith('cold:')) {
+        return chalk.bgBlue.white(prefix + reason);
+    }
+    return prefix + reason;
+}
 
 export class GameManager {
     private states: Map<string, GameManagerState> = new Map();
@@ -75,7 +91,7 @@ export class GameManager {
         };
 
         const resolution = this.chain.run(ctx);
-        console.log(`[${channel}] [filter] ${resolution.action} via ${resolution.by}: ${resolution.reason}`);
+        console.log(colorizeFilterLine(channel, resolution.action, resolution.by, resolution.reason));
 
         switch (resolution.action) {
             case 'drop':
@@ -123,7 +139,7 @@ export class GameManager {
         this.marblesHeuristics.recordSentPlay(channel, baseHeuristics);
         this.heuristics.recordGameStart(channel);
         this.heuristics.recordMyJoin(channel);
-        console.log(`[${channel}] [ready] Sending !play`);
+        console.log(chalk.bgGreen.white(`[${channel}] [ready] Sending !play`));
         return true;
     }
 }
