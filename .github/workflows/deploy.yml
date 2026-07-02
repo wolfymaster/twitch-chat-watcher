@@ -43,10 +43,10 @@ jobs:
               image: ${IMAGE_TAG}
               restart: unless-stopped
               environment:
-                TWITCH_CLIENT_ID: \${TWITCH_CLIENT_ID}
-                TWITCH_CLIENT_SECRET: \${TWITCH_CLIENT_SECRET}
-                TWITCH_REDIRECT_URL: \${TWITCH_REDIRECT_URL}
-                TWITCH_BROADCASTER_TOKEN: \${TWITCH_BROADCASTER_TOKEN}
+                TWITCH_CLIENT_ID: '\${TWITCH_CLIENT_ID}'
+                TWITCH_CLIENT_SECRET: '\${TWITCH_CLIENT_SECRET}'
+                TWITCH_REDIRECT_URL: '\${TWITCH_REDIRECT_URL}'
+                TWITCH_BROADCASTER_TOKEN: '\${TWITCH_BROADCASTER_TOKEN}'
           EOF
           )
 
