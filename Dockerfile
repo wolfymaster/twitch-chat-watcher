@@ -19,7 +19,7 @@ COPY . .
 FROM oven/bun:1.0.30-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg python3-pip \
-    && pip3 install --no-cache-dir --break-system-packages streamlink \
+    && pip3 install --no-cache-dir streamlink \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
