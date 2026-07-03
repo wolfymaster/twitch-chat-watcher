@@ -44,6 +44,11 @@ export interface HeuristicPrediction {
   predictedPlayerCount: number | null;
 }
 
+// Gaps larger than this are treated as breaks between play sessions (e.g. stream
+// went offline, or a long lull with no games) rather than "time between games",
+// so they're excluded from the avg/min/max time-between-games heuristics.
+const SESSION_GAP_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
+
 export class HeuristicsManager {
   private heuristics: Map<string, ChannelHeuristics> = new Map();
   private memoryDir: string;
@@ -209,23 +214,32 @@ export class HeuristicsManager {
       h.gameStartTimestamps = h.gameStartTimestamps.slice(-20);
     }
     
-    // Calculate time between games
+    // Calculate time between games, ignoring gaps that cross a session boundary
+    // (e.g. the streamer went offline between games) so idle time doesn't skew
+    // the "time between games" heuristic.
     if (h.gameStartTimestamps.length >= 2) {
       let totalGap = 0;
       let minGap = Infinity;
       let maxGap = 0;
-      
+      let gapCount = 0;
+
       for (let i = 1; i < h.gameStartTimestamps.length; i++) {
         const gap = h.gameStartTimestamps[i] - h.gameStartTimestamps[i - 1];
+        if (gap > SESSION_GAP_THRESHOLD_MS) {
+          continue;
+        }
         totalGap += gap;
         minGap = Math.min(minGap, gap);
         maxGap = Math.max(maxGap, gap);
+        gapCount++;
       }
-      
-      h.avgTimeBetweenGamesMs = totalGap / (h.gameStartTimestamps.length - 1);
-      h.minTimeBetweenGamesMs = minGap;
-      h.maxTimeBetweenGamesMs = maxGap;
-      
+
+      if (gapCount > 0) {
+        h.avgTimeBetweenGamesMs = totalGap / gapCount;
+        h.minTimeBetweenGamesMs = minGap;
+        h.maxTimeBetweenGamesMs = maxGap;
+      }
+
       // Increase confidence as we get more data
       h.timePredictionConfidence = Math.min(0.95, h.gameStartTimestamps.length / 10);
     }
