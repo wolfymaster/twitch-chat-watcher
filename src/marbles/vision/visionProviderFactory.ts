@@ -12,6 +12,7 @@
 
 import type { MarblesVisionConfig } from '../types';
 import type { VisionProvider } from './visionProvider';
+import { NullVisionProvider } from './visionProvider';
 import { OllamaVisionProvider } from './ollamaVisionProvider';
 import { ClaudeVisionProvider } from './claudeVisionProvider';
 
@@ -41,5 +42,5 @@ export async function createVisionProvider(config: MarblesVisionConfig): Promise
         return new ClaudeVisionProvider(process.env.ANTHROPIC_API_KEY);
     }
     console.warn(`[Vision] Ollama unreachable at ${config.ollama.host} and no ANTHROPIC_API_KEY — sessions will be "stopped"`);
-    return new OllamaVisionProvider(config.ollama);
+    return new NullVisionProvider();
 }

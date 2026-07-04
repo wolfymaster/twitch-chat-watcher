@@ -56,6 +56,20 @@ const VALID_LOCATIONS: GameLocation[] = [
     'fullscreen',
 ];
 
+/**
+ * No-op provider used when no vision backend is reachable/configured (e.g.
+ * Ollama unreachable and no ANTHROPIC_API_KEY). Always returns a `stopped`
+ * session without making a network call, so detection cycles don't keep
+ * retrying a connection that's known to fail.
+ */
+export class NullVisionProvider implements VisionProvider {
+    readonly name = 'null';
+
+    async detectSession(): Promise<Session> {
+        return stoppedSession();
+    }
+}
+
 /** A safe default when detection fails or the model returns garbage. */
 export function stoppedSession(): Session {
     return {
